@@ -29,3 +29,6 @@ Crie um arquivo chamado `setup-vscode.sh`:
 
 ```bash
 nano setup-vscode.sh
+`chmod +x setup-vscode.sh
+./setup-vscode.sh
+
