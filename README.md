@@ -28,7 +28,13 @@ Este script instala e configura o Visual Studio Code com extensões e ajustes id
 Crie um arquivo chamado `setup-vscode.sh`:
 
 ```bash
-nano setup-vscode.sh
+#nano setup-vscode.sh
 `chmod +x setup-vscode.sh
 ./setup-vscode.sh
+
+# Antes e depois da otimização
+time python3 -c "print('Performance Test')"
+htop
+systemd-analyze startup
+
 
