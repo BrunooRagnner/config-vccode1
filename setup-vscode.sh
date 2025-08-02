@@ -1,118 +1,75 @@
-#!/bin/bash
+# setup-dev.ps1
 
-# 1. OTIMIZAÇÃO DO SISTEMA BASE
-echo "🛠️  OTIMIZANDO O SISTEMA UBUNTU..."
+Write-Host "🛠️  CONFIGURANDO AMBIENTE DE DESENVOLVIMENTO NO WINDOWS..." -ForegroundColor Cyan
 
-# Limpeza de pacotes obsoletos
-sudo apt autoremove -y
-sudo apt clean
-sudo journalctl --vacuum-time=3d
+# 1. CRIAR PASTAS DE PROJETOS
+$devFolder = "$HOME\Projetos"
+if (-not (Test-Path $devFolder)) {
+    New-Item -ItemType Directory -Path $devFolder
+    Write-Host "📁 Pasta de projetos criada em: $devFolder"
+}
 
-# Desativar serviços desnecessários
-sudo systemctl disable bluetooth.service
-sudo systemctl disable avahi-daemon.service
+# 2. INSTALAR CHOCOLATEY (gerenciador de pacotes)
+if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-Host "📦 Instalando Chocolatey..."
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+} else {
+    Write-Host "✅ Chocolatey já está instalado."
+}
 
-# 2. CONFIGURAÇÕES DE PERFORMANCE
-echo "⚡ AJUSTES DE PERFORMANCE..."
+# 3. INSTALAR PROGRAMAS ESSENCIAIS
+$apps = @(
+    "git",
+    "python",
+    "nodejs",
+    "jdk11",
+    "vscode",
+    "windows-terminal",
+    "7zip",
+    "neofetch"
+)
 
-# Swap mais eficiente
-sudo sysctl vm.swappiness=10
-sudo sysctl vm.vfs_cache_pressure=50
-echo "vm.swappiness=10" | sudo tee -a /etc/sysctl.conf
-echo "vm.vfs_cache_pressure=50" | sudo tee -a /etc/sysctl.conf
+foreach ($app in $apps) {
+    Write-Host "📦 Instalando: $app"
+    choco install $app -y --ignore-checksums
+}
 
-# Otimizar montagem de discos (SSD/HD)
-if [ $(lsblk -d -o rota | grep -c 0) -gt 0 ]; then
-    echo "⚡ SSD DETECTADO - Otimizando..."
-    sudo systemctl enable fstrim.timer
-    sudo sed -i 's/noatime/noatime,discard/' /etc/fstab
-fi
+# 4. EXTENSÕES VS CODE
+Write-Host "🔧 Instalando extensões do VS Code..."
+$extensions = @(
+    "ms-python.python",
+    "ms-toolsai.jupyter",
+    "esbenp.prettier-vscode",
+    "ritwickdey.LiveServer",
+    "dbaeumer.vscode-eslint"
+)
 
-# 3. KERNEL E DRIVERS
-echo "🖥️  OTIMIZANDO KERNEL..."
+foreach ($ext in $extensions) {
+    code --install-extension $ext
+}
 
-# Instalar kernel lowlatency (para desenvolvedores)
-sudo apt install -y linux-image-lowlatency linux-headers-lowlatency
+# 5. CONFIGURAÇÃO DO VS CODE
+Write-Host "📝 Aplicando configurações no VS Code..."
+$vsSettingsPath = "$env:APPDATA\Code\User\settings.json"
 
-# Configurar GRUB para desligar mitigações (opcional para performance)
-sudo sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=".*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash mitigations=off"/g' /etc/default/grub
-sudo update-grub
-
-# 4. AMBIENTE DE DESENVOLVIMENTO TURBO
-echo "💻 CONFIGURAÇÃO DEVS TURBO..."
-
-# Instalar ferramentas essenciais
-sudo apt install -y \
-    build-essential \
-    git \
-    python3-pip \
-    python3-venv \
-    nodejs \
-    npm \
-    default-jdk \
-    zsh \
-    neofetch \
-    htop \
-    ncdu
-
-# 5. CONFIGURAÇÃO DO VS CODE ULTRA LEVE
-if ! command -v code &> /dev/null; then
-    echo "📟 INSTALANDO VS CODE OPTIMIZED..."
-    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-    sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
-    sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
-    sudo apt update
-    sudo apt install -y --no-install-recommends code
-fi
-
-# Configurações performance VS Code
-cat <<EOF > ~/.config/Code/User/settings.json
+@"
 {
     "workbench.startupEditor": "none",
-    "editor.fontFamily": "'Ubuntu Mono', monospace",
     "editor.fontSize": 14,
     "editor.minimap.enabled": false,
     "files.autoSave": "afterDelay",
     "telemetry.telemetryLevel": "off",
     "update.mode": "manual",
     "extensions.autoUpdate": false,
-    "python.languageServer": "Pylance",
     "python.analysis.typeCheckingMode": "off"
 }
-EOF
+"@ | Set-Content -Path $vsSettingsPath -Encoding utf8
 
-# 6. LIMPEZA E OTIMIZAÇÃO FINAL
-echo "🧹 LIMPEZA FINAL..."
+# 6. CONFIGURAÇÃO DE TERMINAL PERSONALIZADO (ZSH não funciona nativamente no Windows, mas...)
+Write-Host "💻 Terminal moderno instalado (Windows Terminal)"
 
-# Limpar cache
-sudo rm -rf /var/cache/*
-sudo rm -rf ~/.cache/*
-
-# Otimizar memória
-sudo apt install -y preload
-sudo systemctl start preload
-sudo systemctl enable preload
-
-# 7. CONFIGURAÇÃO DO TERMINAL PRO
-echo "💻 TERMINAL PRO CONFIG..."
-
-# ZSH com Oh My ZSH
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-sed -i 's/ZSH_THEME=.*/ZSH_THEME="agnoster"/' ~/.zshrc
-echo "plugins=(git python docker ubuntu)" >> ~/.zshrc
-
-# Aliases úteis
-cat <<EOF >> ~/.zshrc
-# ALIASES DE PERFORMANCE
-alias update='sudo apt update && sudo apt upgrade -y'
-alias clean='sudo apt autoremove -y && sudo apt clean'
-alias perf='htop'
-alias diskspace='ncdu'
-alias sysinfo='neofetch'
-EOF
-
-echo "🎉 OTIMIZAÇÃO COMPLETA! Reinicie o sistema."
-echo "💡 Dicas:"
-echo "- Use 'perf' para monitorar sistema"
-echo "- 'clean' para limpeza rápida"
-echo "- 'sysinfo' para ver informações"
+Write-Host "`n🎉 AMBIENTE CONFIGURADO COM SUCESSO!"
+Write-Host "📌 VS Code: digite 'code .' na pasta do projeto"
+Write-Host "📌 Git: digite 'git config --global user.name \"Seu Nome\"' para configurar"
